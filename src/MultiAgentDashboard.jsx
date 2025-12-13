@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Send, Activity, CheckCircle, XCircle, Clock, Zap, Brain, Code, Users, ChevronDown, ChevronUp, Moon, Sun } from 'lucide-react';
 
-const API_BASE =  'https://loomiq-production.up.railway.app/api';
+const API_BASE =  'https://loomiq.onrender.com/api';
 
 // 'loomiq-production.up.railway.app/api' ||
 
