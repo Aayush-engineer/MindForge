@@ -112,6 +112,8 @@ export default function MultiAgentDashboard() {
       });
       
       const data = await res.json();
+
+      console.log("my data from backend",data);
       
       if (data.success) {
         setTasks([data.task, ...tasks]);
@@ -320,7 +322,7 @@ export default function MultiAgentDashboard() {
                 <Brain className="w-8 h-8 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">MindForge</h1>
+                <h1 className="text-2xl font-bold text-gray-900">LoomIQ</h1>
                 <p className="text-sm text-gray-500">AI-Powered Task Collaboration System</p>
               </div>
             </div>
