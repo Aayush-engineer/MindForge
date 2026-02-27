@@ -3,7 +3,7 @@ import { Send, Activity, CheckCircle, XCircle, Clock, Zap, Brain, Code, Users, C
 import { useAuth } from './context/AuthContext';
 import TaskProgressTerminal from './components/TaskProgressTerminal';
 
-const API_BASE = 'http://localhost:3000/api';
+const API_BASE = 'https://loomiq.onrender.com/api';
 
 export default function MultiAgentDashboard({ onProfile }) {
   const { user, logout, authFetch, token } = useAuth();
