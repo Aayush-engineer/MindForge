@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { CheckCircle, XCircle, Activity, Zap, Users, ChevronRight } from 'lucide-react';
 
-const API_BASE = 'http://localhost:3000/api';
+const API_BASE = 'https://loomiq.onrender.com/api';
 
 // ── Event styling map ────────────────────────────────────────────────────────
 const EVENT_STYLES = {

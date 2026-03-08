@@ -4,7 +4,7 @@ import { useAuth } from './context/AuthContext';
 import TaskProgressTerminal from './components/TaskProgressTerminal';
 import ReactMarkdown from 'react-markdown';
 
-const API_BASE = 'http://localhost:3000/api';
+const API_BASE = 'https://loomiq.onrender.com/api';
 // http://localhost:3000/api
 
 export default function MultiAgentDashboard({ onProfile }) {

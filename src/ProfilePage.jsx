@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from './context/AuthContext';
 
-const API_BASE = 'http://localhost:3000/api';
+const API_BASE = 'https://loomiq.onrender.com/api';
 
 
 
