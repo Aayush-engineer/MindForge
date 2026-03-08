@@ -5,7 +5,9 @@ import {
 } from 'lucide-react';
 import { useAuth } from './context/AuthContext';
 
-const API_BASE = 'https://loomiq.onrender.com/api';
+const API_BASE = 'http://localhost:3000/api';
+
+
 
 const ROLE_BADGE = {
   admin:     'bg-red-100 text-red-700 border border-red-200',

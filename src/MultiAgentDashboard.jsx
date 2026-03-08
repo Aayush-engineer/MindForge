@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Send, Activity, CheckCircle, XCircle, Clock, Zap, Brain, Code, Users, ChevronDown, ChevronUp, LogOut, Settings, Sun, Moon } from 'lucide-react';
 import { useAuth } from './context/AuthContext';
 import TaskProgressTerminal from './components/TaskProgressTerminal';
+import ReactMarkdown from 'react-markdown';
 
-const API_BASE = 'https://loomiq.onrender.com/api';
+const API_BASE = 'http://localhost:3000/api';
+// http://localhost:3000/api
 
 export default function MultiAgentDashboard({ onProfile }) {
   const { user, logout, authFetch, token } = useAuth();
@@ -29,7 +31,7 @@ export default function MultiAgentDashboard({ onProfile }) {
 
   useEffect(() => {
     fetchAgents(); fetchStats(); fetchTasks();
-    const interval = setInterval(() => { fetchStats(); fetchTasks(); }, 3000);
+    const interval = setInterval(() => { fetchStats(); fetchTasks(); }, 8000);
     return () => clearInterval(interval);
   }, []);
 
@@ -40,6 +42,9 @@ export default function MultiAgentDashboard({ onProfile }) {
   const toggleTaskExpansion = (taskId) => {
     setExpandedTasks(prev => { const s = new Set(prev); if (s.has(taskId)) s.delete(taskId); else s.add(taskId); return s; });
   };
+
+  
+  
 
   const createTask = async () => {
     if (!newTask.prompt.trim()) return;
@@ -68,15 +73,43 @@ export default function MultiAgentDashboard({ onProfile }) {
     setStreamingTaskId(null);
     streamingTaskIdRef.current = null;
     if (!taskId) return;
-    try {
-      const res  = await authFetch(`${API_BASE}/tasks/${taskId}`);
-      const data = await res.json();
-      if (data.task) {
-        setLastCreatedTask(data.task);
-        setTasks(prev => prev.map(t => t.id === data.task.id ? data.task : t));
-        fetchStats();
+
+    // ✅ Retry up to 5 times with delay — DB write may not be done yet
+    const fetchWithRetry = async (retries = 5, delayMs = 800) => {
+      for (let i = 0; i < retries; i++) {
+        try {
+          const res  = await authFetch(`${API_BASE}/tasks/${taskId}`);
+          const data = await res.json();
+          const output = data.task?.output;
+
+          // If output exists and is not empty, use it
+          if (output && output.length > 0) {
+            setLastCreatedTask(data.task);
+            setTasks(prev => prev.map(t => t.id === data.task.id ? data.task : t));
+            fetchStats();
+            return;
+          }
+
+          // Wait before retrying
+          if (i < retries - 1) await new Promise(r => setTimeout(r, delayMs));
+        } catch (err) {
+          console.error('Fetch attempt failed:', err);
+        }
       }
-    } catch (err) {}
+
+      // Last resort — fetch one more time and show whatever we have
+      try {
+        const res  = await authFetch(`${API_BASE}/tasks/${taskId}`);
+        const data = await res.json();
+        if (data.task) {
+          setLastCreatedTask(data.task);
+          setTasks(prev => prev.map(t => t.id === data.task.id ? data.task : t));
+          fetchStats();
+        }
+      } catch (err) {}
+    };
+
+    await fetchWithRetry();
   };
 
   // ── Theme tokens ────────────────────────────────────────────────────────────
@@ -108,6 +141,37 @@ export default function MultiAgentDashboard({ onProfile }) {
     duration:    dark ? 'bg-blue-950 text-blue-300' : 'bg-blue-50 text-blue-700',
   };
 
+  const markdownComponents = {
+    code({ node, inline, className, children, ...props }) {
+      return inline ? (
+        <code
+          className={`px-1.5 py-0.5 rounded text-xs font-mono ${
+            dark ? 'bg-gray-800 text-green-300' : 'bg-gray-100 text-gray-800'
+          }`}
+          {...props}
+        >
+          {children}
+        </code>
+      ) : (
+        <pre className={`rounded-lg p-4 overflow-x-auto text-xs font-mono ${
+          dark ? 'bg-gray-900 text-green-300 border border-gray-700'
+              : 'bg-gray-50 text-gray-800 border border-gray-200'
+        }`}>
+          <code {...props}>{children}</code>
+        </pre>
+      );
+    },
+    h1: ({ children }) => <h1 className={`text-lg font-bold mt-4 mb-2 ${t.title}`}>{children}</h1>,
+    h2: ({ children }) => <h2 className={`text-base font-bold mt-3 mb-2 ${t.title}`}>{children}</h2>,
+    h3: ({ children }) => <h3 className={`text-sm font-semibold mt-2 mb-1 ${t.title}`}>{children}</h3>,
+    p:  ({ children }) => <p className={`mb-2 text-sm leading-relaxed ${dark ? 'text-gray-300' : 'text-gray-700'}`}>{children}</p>,
+    ul: ({ children }) => <ul className={`list-disc list-inside mb-2 space-y-1 text-sm ${dark ? 'text-gray-300' : 'text-gray-700'}`}>{children}</ul>,
+    ol: ({ children }) => <ol className={`list-decimal list-inside mb-2 space-y-1 text-sm ${dark ? 'text-gray-300' : 'text-gray-700'}`}>{children}</ol>,
+    li: ({ children }) => <li className="text-sm">{children}</li>,
+    strong: ({ children }) => <strong className={`font-semibold ${dark ? 'text-gray-100' : 'text-gray-900'}`}>{children}</strong>,
+    hr: () => <hr className={`my-3 ${dark ? 'border-gray-700' : 'border-gray-200'}`} />,
+  };
+
   const getStatusColor = (s) => ({
     completed:   dark ? 'text-green-400 bg-green-950'  : 'text-green-600 bg-green-50',
     failed:      dark ? 'text-red-400 bg-red-950'      : 'text-red-600 bg-red-50',
@@ -119,22 +183,40 @@ export default function MultiAgentDashboard({ onProfile }) {
   const getPriorityColor = (p) => ({ critical: 'bg-red-500', high: 'bg-orange-500', medium: 'bg-yellow-500', low: 'bg-green-500' }[p] || 'bg-gray-500');
 
   const formatOutput = (output) => {
-    if (!output) return 'No output available';
-    if (typeof output === 'string') return output;
-    if (output.results?.combinedOutput?.content) {
-      const combined = output.results.combinedOutput;
-      return (<div className="space-y-3"><div className="font-semibold text-sm">🤝 Collaboration Results ({output.results.metadata?.agentCount || 0} agents)</div><div className={`rounded-lg p-3 text-sm whitespace-pre-wrap ${dark ? 'bg-gray-800' : 'bg-white border border-green-100'}`}>{combined.content}</div></div>);
+    if (!output) return <span className={t.subtitle}>No output available</span>;
+
+    let text = '';
+
+    if (typeof output === 'string') {
+      text = output;
+    } else if (typeof output?.output === 'string' && output.output.length > 0) {
+      text = output.output;
+    } else if (typeof output?.content === 'string') {
+      text = output.content;
+    } else if (Array.isArray(output?.results)) {
+      const best = output.results.reduce((a, b) =>
+        (b.output?.content || b.output || '').length >
+        (a.output?.content || a.output || '').length ? b : a
+      , output.results[0]);
+      text = best?.output?.content ?? best?.output ?? '';
+      if (typeof text !== 'string') text = JSON.stringify(text, null, 2);
+    } else {
+      text = JSON.stringify(output, null, 2);
     }
-    if (Array.isArray(output.results)) {
-      return (<div className="space-y-3"><div className="font-semibold text-sm">🤝 Collaboration Steps ({output.results.length}):</div>{output.results.map((step, idx) => { const content = step.output?.content || step.content || JSON.stringify(step, null, 2); return (<div key={idx} className={`border-l-4 border-blue-500 pl-3 py-2 rounded text-sm ${dark ? 'bg-gray-800' : 'bg-gray-50'}`}><div className="font-medium text-blue-400 mb-1">Step {idx + 1}: {step.agentId || `Agent ${idx + 1}`}</div><div className="whitespace-pre-wrap">{typeof content === 'string' ? content : JSON.stringify(content, null, 2)}</div></div>); })}</div>);
+
+    if (!text || text.length === 0) {
+      return <span className={t.subtitle}>No output available</span>;
     }
-    if (output.content) return typeof output.content === 'string' ? output.content : JSON.stringify(output.content, null, 2);
-    if (output.metadata || output.finishReason) {
-      const txt = output.content || output.text || output.result || 'No text content';
-      return (<div><div className="text-sm whitespace-pre-wrap">{typeof txt === 'string' ? txt : JSON.stringify(txt, null, 2)}</div>{output.metadata && <div className={`text-xs mt-2 pt-2 border-t ${dark ? 'border-gray-700 text-gray-500' : 'border-gray-200 text-gray-400'}`}>📊 {output.metadata.model || 'Unknown'} | {output.metadata.tokensUsed || 0} tokens</div>}</div>);
-    }
-    try { return <pre className="text-xs overflow-x-auto">{JSON.stringify(output, null, 2)}</pre>; }
-    catch (e) { return 'Unable to display output'; }
+
+    return (
+      <div className={`prose prose-sm max-w-none ${
+        dark ? 'prose-invert' : ''
+      }`}>
+        <ReactMarkdown components={markdownComponents}>
+          {text}
+        </ReactMarkdown>
+      </div>
+    );
   };
 
   const initials = (`${(user?.firstName||'')[0]||''}${(user?.lastName||'')[0]||''}`).toUpperCase() || user?.username?.[0]?.toUpperCase() || '?';
@@ -321,9 +403,14 @@ export default function MultiAgentDashboard({ onProfile }) {
                     {lastCreatedTask.output && (
                       <div className={`rounded-lg border overflow-hidden ${t.resultBox}`}>
                         <div className={`flex items-center gap-2 px-4 py-2 border-b ${t.resultHead}`}>
-                          <CheckCircle className="w-4 h-4 text-green-500" /><span className={`text-sm font-semibold ${dark ? 'text-green-300' : 'text-green-800'}`}>Result</span>
+                          <CheckCircle className="w-4 h-4 text-green-500" />
+                          <span className={`text-sm font-semibold ${dark ? 'text-green-300' : 'text-green-800'}`}>Result</span>
                         </div>
-                        <div className={`p-4 text-sm whitespace-pre-wrap leading-relaxed ${t.resultBody}`}>{formatOutput(lastCreatedTask.output)}</div>
+                        <div className={`text-sm rounded-lg p-3 max-h-72 overflow-y-auto ${
+                          dark ? 'bg-gray-900 text-gray-200' : 'bg-white text-gray-700 border border-green-100'
+                        }`}>
+                          {formatOutput(lastCreatedTask.output)}  {/* ← was t.output */}
+                        </div>
                       </div>
                     )}
                     {lastCreatedTask.error && (

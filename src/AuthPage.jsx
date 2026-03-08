@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { Brain, Mail, Lock, User, Eye, EyeOff, ArrowRight, AlertCircle } from 'lucide-react';
 import { useAuth } from './context/AuthContext';
 
-const API_BASE = 'https://loomiq.onrender.com/api';
-
+const API_BASE = 'http://localhost:3000/api';
+// http://localhost:3000/
+// https://loomiq.onrender.com/api
 export default function AuthPage() {
   const { login } = useAuth();
   const [mode, setMode]     = useState('login');
